@@ -48,47 +48,56 @@ export default function SetupClient() {
     },
   ]);
 
-  // On mount: check Jira connection status + handle OAuth redirect params
+  // On mount: handle OAuth/install redirect params + check existing connections
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const jiraParam = params.get("jira");
-    const errorParam = params.get("error");
 
-    if (jiraParam === "connected") {
+    if (params.get("jira") === "connected") {
       setIntegrations((prev) =>
         prev.map((i) => (i.id === "jira" ? { ...i, connected: true } : i))
       );
       setStatusMessage({ type: "success", text: "Jira connected ✓ — AI PM now has access to your workspace" });
-      // Clean URL
       window.history.replaceState({}, "", "/setup");
-    } else if (errorParam?.startsWith("jira")) {
-      setStatusMessage({ type: "error", text: "Failed to connect Jira. Please try again." });
+    } else if (params.get("github") === "connected") {
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === "github" ? { ...i, connected: true } : i))
+      );
+      setStatusMessage({ type: "success", text: "GitHub connected ✓ — Agents can now push code to your repos" });
       window.history.replaceState({}, "", "/setup");
-    } else {
-      // Check if already connected
-      fetch("/api/auth/jira/status")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.connected) {
-            setIntegrations((prev) =>
-              prev.map((i) => (i.id === "jira" ? { ...i, connected: true } : i))
-            );
-          }
-        })
-        .catch(() => {});
+    } else if (params.get("error")) {
+      setStatusMessage({ type: "error", text: "Failed to connect. Please try again." });
+      window.history.replaceState({}, "", "/setup");
     }
+
+    // Always check existing connections in parallel
+    Promise.all([
+      fetch("/api/auth/jira/status").then((r) => r.json()).catch(() => ({ connected: false })),
+      fetch("/api/auth/github/status").then((r) => r.json()).catch(() => ({ connected: false })),
+    ]).then(([jira, github]) => {
+      setIntegrations((prev) =>
+        prev.map((i) => {
+          if (i.id === "jira" && jira.connected) return { ...i, connected: true };
+          if (i.id === "github" && github.connected) return { ...i, connected: true };
+          return i;
+        })
+      );
+    });
   }, []);
 
   const allConnected = integrations.every((i) => i.connected);
 
   const handleConnect = async (id: string) => {
     if (id === "jira") {
-      // Real OAuth redirect
       window.location.href = "/api/auth/jira";
       return;
     }
 
-    // Simulated connection for GitHub and Slack
+    if (id === "github") {
+      window.location.href = "/api/auth/github";
+      return;
+    }
+
+    // Simulated connection for Slack
     setConnectingId(id);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setIntegrations((prev) =>

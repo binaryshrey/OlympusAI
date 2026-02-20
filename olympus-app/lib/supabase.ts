@@ -139,3 +139,29 @@ export async function upsertJiraIntegration(integration: JiraIntegration) {
 
   return data;
 }
+
+// GitHub Integration
+export interface GithubIntegration {
+  id?: string;
+  user_id: string;
+  installation_id: string;
+  repos?: string[];
+  setup_action?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getGithubIntegration(userId: string) {
+  const { data, error } = await supabase
+    .from("github_integrations")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching GitHub integration:", error);
+    throw error;
+  }
+
+  return data as GithubIntegration | null;
+}
