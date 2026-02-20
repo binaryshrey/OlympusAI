@@ -23,7 +23,7 @@ export default function SetupClient() {
       name: "Jira",
       description:
         "Connect your Jira workspace to sync projects, issues, and sprint boards automatically.",
-      icon: "/integrations/jira.svg",
+      icon: "/jiraa.svg",
       connected: false,
     },
     {
@@ -31,15 +31,15 @@ export default function SetupClient() {
       name: "GitHub",
       description:
         "Link your GitHub repositories to enable code tracking, pull requests, and CI/CD integration.",
-      icon: "/integrations/github.svg",
+      icon: "/githubb.svg",
       connected: false,
     },
     {
-      id: "bitbucket",
-      name: "Bitbucket",
+      id: "slack",
+      name: "Slack",
       description:
-        "Connect Bitbucket to sync repositories, pipelines, and collaborate with your team seamlessly.",
-      icon: "/integrations/bitbucket.svg",
+        "Connect Slack to enable real-time collaboration, notifications, and AI agent communication with your team.",
+      icon: "/slackk.svg",
       connected: false,
     },
   ]);
@@ -68,15 +68,26 @@ export default function SetupClient() {
   };
 
   return (
-    <div>
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Olympus AI Tools Setup
+        </h1>
+        <p className="text-gray-600">
+          Connect your tools so our AI Product Manager can orchestrate
+          end-to-end software delivery for you.
+        </p>
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        {/* <h2 className="text-lg font-semibold text-gray-900 mb-2">
           Connect Your Tools
         </h2>
         <p className="text-gray-500 mb-8">
           Integrate your project management and version control tools to get
           started with Nebula AI.
-        </p>
+        </p> */}
 
         <div className="space-y-4">
           {integrations.map((integration) => (
