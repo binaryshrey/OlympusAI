@@ -165,3 +165,30 @@ export async function getGithubIntegration(userId: string) {
 
   return data as GithubIntegration | null;
 }
+
+// Slack Integration
+export interface SlackIntegration {
+  id?: string;
+  user_id: string;
+  team_id: string;
+  team_name?: string;
+  bot_token: string;
+  bot_user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getSlackIntegration(userId: string) {
+  const { data, error } = await supabase
+    .from("slack_integrations")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching Slack integration:", error);
+    throw error;
+  }
+
+  return data as SlackIntegration | null;
+}

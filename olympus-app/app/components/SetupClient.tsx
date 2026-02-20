@@ -64,6 +64,12 @@ export default function SetupClient() {
       );
       setStatusMessage({ type: "success", text: "GitHub connected ✓ — Agents can now push code to your repos" });
       window.history.replaceState({}, "", "/setup");
+    } else if (params.get("slack") === "connected") {
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === "slack" ? { ...i, connected: true } : i))
+      );
+      setStatusMessage({ type: "success", text: "Slack connected ✓ — Agents can now message your workspace" });
+      window.history.replaceState({}, "", "/setup");
     } else if (params.get("error")) {
       setStatusMessage({ type: "error", text: "Failed to connect. Please try again." });
       window.history.replaceState({}, "", "/setup");
@@ -73,11 +79,13 @@ export default function SetupClient() {
     Promise.all([
       fetch("/api/auth/jira/status").then((r) => r.json()).catch(() => ({ connected: false })),
       fetch("/api/auth/github/status").then((r) => r.json()).catch(() => ({ connected: false })),
-    ]).then(([jira, github]) => {
+      fetch("/api/auth/slack/status").then((r) => r.json()).catch(() => ({ connected: false })),
+    ]).then(([jira, github, slack]) => {
       setIntegrations((prev) =>
         prev.map((i) => {
           if (i.id === "jira" && jira.connected) return { ...i, connected: true };
           if (i.id === "github" && github.connected) return { ...i, connected: true };
+          if (i.id === "slack" && slack.connected) return { ...i, connected: true };
           return i;
         })
       );
@@ -97,7 +105,11 @@ export default function SetupClient() {
       return;
     }
 
-    // Simulated connection for Slack
+    if (id === "slack") {
+      window.location.href = "/api/auth/slack";
+      return;
+    }
+
     setConnectingId(id);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setIntegrations((prev) =>
