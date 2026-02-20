@@ -93,3 +93,49 @@ export async function getProjectsByUser(userId: string) {
 
   return data;
 }
+
+// Jira Integration
+export interface JiraIntegration {
+  id?: string;
+  user_id: string;
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: string;
+  cloud_id: string;
+  site_url: string;
+  site_name?: string;
+  project_key?: string;
+  board_id?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getJiraIntegration(userId: string) {
+  const { data, error } = await supabase
+    .from("jira_integrations")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching Jira integration:", error);
+    throw error;
+  }
+
+  return data as JiraIntegration | null;
+}
+
+export async function upsertJiraIntegration(integration: JiraIntegration) {
+  const { data, error } = await supabase
+    .from("jira_integrations")
+    .upsert(integration, { onConflict: "user_id" })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error upserting Jira integration:", error);
+    throw error;
+  }
+
+  return data;
+}

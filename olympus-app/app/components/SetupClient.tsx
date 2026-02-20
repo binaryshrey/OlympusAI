@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
@@ -16,6 +16,10 @@ export default function SetupClient() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const [integrations, setIntegrations] = useState<Integration[]>([
     {
@@ -44,20 +48,55 @@ export default function SetupClient() {
     },
   ]);
 
+  // On mount: check Jira connection status + handle OAuth redirect params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const jiraParam = params.get("jira");
+    const errorParam = params.get("error");
+
+    if (jiraParam === "connected") {
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === "jira" ? { ...i, connected: true } : i))
+      );
+      setStatusMessage({ type: "success", text: "Jira connected ✓ — AI PM now has access to your workspace" });
+      // Clean URL
+      window.history.replaceState({}, "", "/setup");
+    } else if (errorParam?.startsWith("jira")) {
+      setStatusMessage({ type: "error", text: "Failed to connect Jira. Please try again." });
+      window.history.replaceState({}, "", "/setup");
+    } else {
+      // Check if already connected
+      fetch("/api/auth/jira/status")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.connected) {
+            setIntegrations((prev) =>
+              prev.map((i) => (i.id === "jira" ? { ...i, connected: true } : i))
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   const allConnected = integrations.every((i) => i.connected);
 
   const handleConnect = async (id: string) => {
+    if (id === "jira") {
+      // Real OAuth redirect
+      window.location.href = "/api/auth/jira";
+      return;
+    }
+
+    // Simulated connection for GitHub and Slack
     setConnectingId(id);
-
-    // Simulate OAuth connection flow
     await new Promise((resolve) => setTimeout(resolve, 1500));
-
     setIntegrations((prev) =>
       prev.map((integration) =>
         integration.id === id
           ? { ...integration, connected: true }
-          : integration,
-      ),
+          : integration
+      )
     );
     setConnectingId(null);
   };
@@ -80,15 +119,20 @@ export default function SetupClient() {
         </p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-        {/* <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          Connect Your Tools
-        </h2>
-        <p className="text-gray-500 mb-8">
-          Integrate your project management and version control tools to get
-          started with Nebula AI.
-        </p> */}
+      {/* Status banner */}
+      {statusMessage && (
+        <div
+          className={`px-4 py-3 rounded-lg text-sm font-medium ${
+            statusMessage.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {statusMessage.text}
+        </div>
+      )}
 
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
         <div className="space-y-4">
           {integrations.map((integration) => (
             <div
