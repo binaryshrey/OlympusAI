@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Logo } from "@/components/logo";
+import { Logo } from "@/app/components/logo";
 
 const GITHUB_URI = "https://github.com/";
 const BETTERSTACK_URI = "#";

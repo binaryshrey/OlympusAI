@@ -1,11 +1,11 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedGroup } from "@/components/ui/animated-group";
 import { HeroHeader } from "./header";
-import { HeroVideoDialog } from "./ui/hero-video-dialog";
+import { HeroVideoDialog } from "@/components/ui/hero-video-dialog";
 import { Highlighter } from "@/components/ui/highlighter";
 
 const transitionVariants = {
@@ -136,7 +136,7 @@ export default function HeroSection() {
                       size="lg"
                       className="rounded-xl px-5 text-base"
                     >
-                      <Link href="#link">
+                      <Link href="/sign-up">
                         <span className="text-nowrap">Get Started</span>
                       </Link>
                     </Button>
@@ -148,8 +148,8 @@ export default function HeroSection() {
                     variant="ghost"
                     className="h-10.5 rounded-xl px-5 hover:bg-transparent"
                   >
-                    <Link href="#link">
-                      <span className="text-nowrap">Learn More →</span>
+                    <Link href="/sign-in">
+                      <span className="text-nowrap">Log in →</span>
                     </Link>
                   </Button>
                 </AnimatedGroup>
