@@ -77,19 +77,28 @@ export default function AgentsWorkflowClient({
   );
   const [prdExpanded, setPrdExpanded] = useState(false);
 
-  const runTasks = async () => {
+  const [runningAccordion, setRunningAccordion] = useState<string | null>(null);
+
+  const runTasksByIds = async (taskIds: Task["id"][]) => {
     const completedResults: Record<string, any> = {};
 
-    for (let i = 0; i < TASK_DEFS.length; i++) {
+    // Seed completedResults from already-done tasks
+    tasks.forEach((t) => {
+      if (t.status === "done" && t.result) completedResults[t.id] = t.result;
+    });
+
+    for (const id of taskIds) {
+      const idx = TASK_DEFS.findIndex((d) => d.id === id);
+      if (idx === -1) continue;
+
       setTasks((prev) =>
-        prev.map((t, idx) => (idx === i ? { ...t, status: "running" } : t))
+        prev.map((t, i) => (i === idx ? { ...t, status: "running" } : t))
       );
 
       try {
-        const body: Record<string, any> = { task: TASK_DEFS[i].id, projectId };
+        const body: Record<string, any> = { task: id, projectId };
 
-        // Pass prior results so prd task can commit to GitHub + update Jira
-        if (TASK_DEFS[i].id === "prd") {
+        if (id === "prd") {
           if (completedResults.jira) body.jiraResult = completedResults.jira;
           if (completedResults.github) body.githubResult = completedResults.github;
         }
@@ -103,31 +112,38 @@ export default function AgentsWorkflowClient({
 
         if (!res.ok) {
           setTasks((prev) =>
-            prev.map((t, idx) =>
-              idx === i
-                ? { ...t, status: "error", result: { error: data.error } }
-                : t
+            prev.map((t, i) =>
+              i === idx ? { ...t, status: "error", result: { error: data.error } } : t
             )
           );
         } else {
-          completedResults[TASK_DEFS[i].id] = data;
+          completedResults[id] = data;
           setTasks((prev) =>
-            prev.map((t, idx) =>
-              idx === i ? { ...t, status: "done", result: data } : t
+            prev.map((t, i) =>
+              i === idx ? { ...t, status: "done", result: data } : t
             )
           );
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unexpected error";
         setTasks((prev) =>
-          prev.map((t, idx) =>
-            idx === i
-              ? { ...t, status: "error", result: { error: msg } }
-              : t
+          prev.map((t, i) =>
+            i === idx ? { ...t, status: "error", result: { error: msg } } : t
           )
         );
       }
     }
+  };
+
+  const runTasks = async () => {
+    await runTasksByIds(TASK_DEFS.map((d) => d.id));
+  };
+
+  const runAccordion = async (accordionId: string, taskIds: Task["id"][]) => {
+    if (runningAccordion) return;
+    setRunningAccordion(accordionId);
+    await runTasksByIds(taskIds);
+    setRunningAccordion(null);
   };
 
   const allDone = tasks.every(
@@ -197,134 +213,143 @@ export default function AgentsWorkflowClient({
               <AccordionContent>
                 <div className="space-y-4 pt-4">
                   {tasks.map((task) => (
-                    <div key={task.id} className="space-y-2">
-                      <div className="flex items-start gap-3">
-                        <StatusIcon status={task.status} />
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm leading-snug ${
-                              task.status === "pending"
-                                ? "text-gray-400"
-                                : "text-gray-800 font-medium"
-                            }`}
-                          >
-                            {task.label}
-                          </p>
+                      <div key={task.id} className="space-y-2">
+                        <div className="flex items-start gap-3">
+                          <StatusIcon status={task.status} />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm leading-snug ${
+                                task.status === "pending"
+                                  ? "text-gray-600"
+                                  : "text-gray-800 font-medium"
+                              }`}
+                            >
+                              {task.label}
+                            </p>
 
-                          {/* Jira result */}
-                          {task.id === "jira" &&
-                            task.status === "done" &&
-                            task.result?.issues && (
-                              <div className="mt-2 space-y-1">
-                                <div className="flex items-center gap-3">
-                                  <p className="text-xs text-gray-500">
-                                    {task.result.issues.length} stories created in{" "}
-                                    <span className="font-medium">
-                                      {task.result.projectKey}
-                                    </span>
-                                  </p>
-                                  {task.result.boardUrl && (
+                            {/* Jira result */}
+                            {task.id === "jira" &&
+                              task.status === "done" &&
+                              task.result?.issues && (
+                                <div className="mt-2 space-y-1">
+                                  <div className="flex items-center gap-3">
+                                    <p className="text-xs text-gray-500">
+                                      {task.result.issues.length} stories created in{" "}
+                                      <span className="font-medium">
+                                        {task.result.projectKey}
+                                      </span>
+                                    </p>
+                                    {task.result.boardUrl && (
+                                      <a
+                                        href={task.result.boardUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                                      >
+                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                        View Board
+                                      </a>
+                                    )}
+                                  </div>
+                                  {task.result.issues.map((issue) => (
                                     <a
-                                      href={task.result.boardUrl}
+                                      key={issue.key}
+                                      href={`${task.result?.siteUrl}/browse/${issue.key}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate"
                                     >
                                       <ExternalLink className="h-3 w-3 shrink-0" />
-                                      View Board
+                                      <span className="font-mono font-medium">
+                                        {issue.key}
+                                      </span>
+                                      <span className="text-gray-600 truncate">
+                                        {issue.summary}
+                                      </span>
                                     </a>
-                                  )}
+                                  ))}
                                 </div>
-                                {task.result.issues.map((issue) => (
-                                  <a
-                                    key={issue.key}
-                                    href={`${task.result?.siteUrl}/browse/${issue.key}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate"
-                                  >
-                                    <ExternalLink className="h-3 w-3 shrink-0" />
-                                    <span className="font-mono font-medium">
-                                      {issue.key}
-                                    </span>
-                                    <span className="text-gray-600 truncate">
-                                      {issue.summary}
-                                    </span>
-                                  </a>
-                                ))}
-                              </div>
-                            )}
+                              )}
 
-                          {/* GitHub result */}
-                          {task.id === "github" &&
-                            task.status === "done" &&
-                            task.result?.repoUrl && (
-                              <div className="mt-2">
-                                <a
-                                  href={task.result.repoUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                                >
-                                  <ExternalLink className="h-3 w-3 shrink-0" />
-                                  {task.result.repoName}
-                                </a>
-                              </div>
-                            )}
-
-                          {/* PRD result */}
-                          {task.id === "prd" &&
-                            task.status === "done" &&
-                            task.result?.prd && (
-                              <div className="mt-2 space-y-1.5">
-                                {/* GitHub commit link */}
-                                {task.result.githubPrdUrl && (
+                            {/* GitHub result */}
+                            {task.id === "github" &&
+                              task.status === "done" &&
+                              task.result?.repoUrl && (
+                                <div className="mt-2">
                                   <a
-                                    href={task.result.githubPrdUrl}
+                                    href={task.result.repoUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
                                   >
                                     <ExternalLink className="h-3 w-3 shrink-0" />
-                                    PRD.md committed to GitHub
+                                    {task.result.repoName}
                                   </a>
-                                )}
-                                {/* Jira in-progress badge */}
-                                {task.result.jiraUpdated && task.result.jiraIssueKey && (
-                                  <p className="text-xs text-green-600 font-medium">
-                                    {task.result.jiraIssueKey} moved to In Progress
-                                  </p>
-                                )}
-                                {/* Expandable PRD */}
-                                <button
-                                  onClick={() => setPrdExpanded(!prdExpanded)}
-                                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                                >
-                                  {prdExpanded ? (
-                                    <ChevronUp className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronDown className="h-3 w-3" />
-                                  )}
-                                  {prdExpanded ? "Hide PRD" : "View PRD"}
-                                </button>
-                                {prdExpanded && (
-                                  <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
-                                    {task.result.prd}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                </div>
+                              )}
 
-                          {/* Error */}
-                          {task.status === "error" && task.result?.error && (
-                            <p className="mt-1 text-xs text-red-600">
-                              {task.result.error}
-                            </p>
-                          )}
+                            {/* PRD result */}
+                            {task.id === "prd" &&
+                              task.status === "done" &&
+                              task.result?.prd && (
+                                <div className="mt-2 space-y-1.5">
+                                  {task.result.githubPrdUrl && (
+                                    <a
+                                      href={task.result.githubPrdUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3 shrink-0" />
+                                      PRD.md committed to GitHub
+                                    </a>
+                                  )}
+                                  {task.result.jiraUpdated && task.result.jiraIssueKey && (
+                                    <p className="text-xs text-green-600 font-medium">
+                                      {task.result.jiraIssueKey} moved to In Progress
+                                    </p>
+                                  )}
+                                  <button
+                                    onClick={() => setPrdExpanded(!prdExpanded)}
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                  >
+                                    {prdExpanded ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                    {prdExpanded ? "Hide PRD" : "View PRD"}
+                                  </button>
+                                  {prdExpanded && (
+                                    <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
+                                      {task.result.prd}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                            {/* Error */}
+                            {task.status === "error" && task.result?.error && (
+                              <p className="mt-1 text-xs text-red-600">
+                                {task.result.error}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => runAccordion("item-1", ["jira", "github", "prd"])}
+                      disabled={!!runningAccordion}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {runningAccordion === "item-1" && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Run Tasks
+                    </button>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -348,6 +373,14 @@ export default function AgentsWorkflowClient({
                       <li>Database Schema Design</li>
                       <li>API Design and Documentation</li>
                     </ul>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      disabled
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md opacity-40 cursor-not-allowed"
+                    >
+                      Run Tasks
+                    </button>
                   </div>
                 </div>
               </AccordionContent>
@@ -373,6 +406,18 @@ export default function AgentsWorkflowClient({
                       <li>Code Documentation</li>
                     </ul>
                   </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => runAccordion("item-3", ["github"])}
+                      disabled={!!runningAccordion}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {runningAccordion === "item-3" && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Run Tasks
+                    </button>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -397,6 +442,14 @@ export default function AgentsWorkflowClient({
                       <li>Quality Assurance Report</li>
                     </ul>
                   </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      disabled
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md opacity-40 cursor-not-allowed"
+                    >
+                      Run Tasks
+                    </button>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -420,6 +473,14 @@ export default function AgentsWorkflowClient({
                       <li>Monitoring and Logging Setup</li>
                       <li>Deployment Documentation</li>
                     </ul>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      disabled
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md opacity-40 cursor-not-allowed"
+                    >
+                      Run Tasks
+                    </button>
                   </div>
                 </div>
               </AccordionContent>
