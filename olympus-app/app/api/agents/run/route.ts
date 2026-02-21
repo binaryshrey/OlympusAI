@@ -468,5 +468,256 @@ Be specific and actionable. Base everything on the requirements provided.`,
     return Response.json({ success: true, prd, githubPrdUrl, jiraUpdated, jiraIssueKey: pmIssue?.key });
   }
 
+  // ─── Task: Update Jira for AI Architect ───────────────────────────────────
+  if (task === "architect_jira") {
+    const jira = await getJiraIntegration(user.id);
+    if (!jira) {
+      return Response.json(
+        { error: "Jira not connected. Please connect Jira in Settings." },
+        { status: 400 }
+      );
+    }
+
+    const jiraIssues: { key: string; summary: string }[] = jiraResult?.issues ?? [];
+    const architectIssue = jiraIssues.find((i) => /architect/i.test(i.summary)) ?? jiraIssues[1];
+
+    if (!architectIssue) {
+      return Response.json(
+        { error: "No Architect Jira issue found. Run the Jira task first." },
+        { status: 400 }
+      );
+    }
+
+    const siteUrl = jira.site_url || "https://olympusss.atlassian.net";
+    const cloudId = jira.cloud_id;
+    const apiBase = cloudId
+      ? `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3`
+      : `${siteUrl}/rest/api/3`;
+    const authHeaders = {
+      Authorization: `Bearer ${jira.access_token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    let architectJiraUpdated = false;
+
+    // Move to In Progress
+    const transRes = await fetch(
+      `${apiBase}/issue/${architectIssue.key}/transitions`,
+      { headers: authHeaders }
+    );
+    if (transRes.ok) {
+      const { transitions } = await transRes.json();
+      const inProgress = (transitions as { id: string; name: string }[]).find(
+        (t) => /in.?progress|start/i.test(t.name)
+      );
+      if (inProgress) {
+        await fetch(`${apiBase}/issue/${architectIssue.key}/transitions`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({ transition: { id: inProgress.id } }),
+        });
+        architectJiraUpdated = true;
+      }
+    }
+
+    // Add a comment
+    await fetch(`${apiBase}/issue/${architectIssue.key}/comment`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        body: {
+          type: "doc",
+          version: 1,
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "text",
+                  text: `AI Architect has started work on ${project.project_name}. System Architecture and Technology Stack documents are being generated.`,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+
+    return Response.json({
+      success: true,
+      architectJiraUpdated,
+      architectJiraIssueKey: architectIssue.key,
+    });
+  }
+
+  // ─── Task: System Architecture ────────────────────────────────────────────
+  if (task === "architecture") {
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      messages: [
+        {
+          role: "user",
+          content: `You are an expert Software Architect. Write a comprehensive System Architecture document in clean markdown for the following project.
+
+Project: ${project.project_name}
+Requirements: ${project.given_requirements}
+
+Structure the document exactly as:
+# ${project.project_name} — System Architecture
+
+## 1. Overview
+## 2. Architecture Diagram (describe as ASCII or text diagram)
+## 3. Core Components
+## 4. Data Flow
+## 5. Database Schema
+## 6. API Design
+## 7. Security Considerations
+## 8. Scalability & Performance
+
+Be specific and tie every section back to the project requirements.`,
+        },
+      ],
+    });
+
+    const architectureContent = msg.content[0].type === "text" ? msg.content[0].text : "";
+    let githubArchitectureUrl: string | undefined;
+
+    const github = await getGithubIntegration(user.id);
+    if (github) {
+      const pat = process.env.GITHUB_PAT;
+      const ghToken = pat ?? (await getGithubInstallationToken(github.installation_id).catch(() => ""));
+
+      if (ghToken) {
+        // Find existing repo by deriving the same slug used during repo creation
+        const repoName = project.project_name
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, "")
+          .trim()
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 100);
+
+        const repos = await getInstallationRepos(github.installation_id).catch(() => []);
+        const matchedRepo = repos.find((r: { name: string; full_name: string }) => r.name === repoName);
+        const repoFullName = matchedRepo?.full_name;
+
+        if (repoFullName) {
+          const commitRes = await fetch(
+            `https://api.github.com/repos/${repoFullName}/contents/ARCHITECTURE.md`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `token ${ghToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+              body: JSON.stringify({
+                message: "docs: Add System Architecture document",
+                content: Buffer.from(architectureContent).toString("base64"),
+              }),
+            }
+          );
+          if (commitRes.ok) {
+            const commitData = await commitRes.json();
+            githubArchitectureUrl = commitData?.content?.html_url;
+          } else {
+            console.error("[Architecture] GitHub commit failed:", await commitRes.text());
+          }
+        }
+      }
+    }
+
+    return Response.json({ success: true, architectureContent, githubArchitectureUrl });
+  }
+
+  // ─── Task: Technology Stack Recommendations ────────────────────────────────
+  if (task === "techstack") {
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2048,
+      messages: [
+        {
+          role: "user",
+          content: `You are an expert Software Architect. Write a Technology Stack Recommendations document in clean markdown.
+
+The frontend is ALWAYS React (web app). Choose the best supporting technologies around it based on the project.
+
+Project: ${project.project_name}
+Requirements: ${project.given_requirements}
+
+Structure the document exactly as:
+# ${project.project_name} — Technology Stack
+
+## Frontend
+- **Framework:** React (Web App)
+- [add libraries, state management, styling, etc.]
+
+## Backend
+## Database
+## Infrastructure & DevOps
+## Third-Party Services
+## Rationale
+
+Keep each section concise and tie choices to the requirements.`,
+        },
+      ],
+    });
+
+    const techStackContent = msg.content[0].type === "text" ? msg.content[0].text : "";
+    let githubTechStackUrl: string | undefined;
+
+    const github = await getGithubIntegration(user.id);
+    if (github) {
+      const pat = process.env.GITHUB_PAT;
+      const ghToken = pat ?? (await getGithubInstallationToken(github.installation_id).catch(() => ""));
+
+      if (ghToken) {
+        const repoName = project.project_name
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, "")
+          .trim()
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 100);
+
+        const repos = await getInstallationRepos(github.installation_id).catch(() => []);
+        const matchedRepo = repos.find((r: { name: string; full_name: string }) => r.name === repoName);
+        const repoFullName = matchedRepo?.full_name;
+
+        if (repoFullName) {
+          const commitRes = await fetch(
+            `https://api.github.com/repos/${repoFullName}/contents/TECH_STACK.md`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `token ${ghToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+              body: JSON.stringify({
+                message: "docs: Add Technology Stack Recommendations",
+                content: Buffer.from(techStackContent).toString("base64"),
+              }),
+            }
+          );
+          if (commitRes.ok) {
+            const commitData = await commitRes.json();
+            githubTechStackUrl = commitData?.content?.html_url;
+          } else {
+            console.error("[TechStack] GitHub commit failed:", await commitRes.text());
+          }
+        }
+      }
+    }
+
+    return Response.json({ success: true, techStackContent, githubTechStackUrl });
+  }
+
   return Response.json({ error: `Unknown task: ${task}` }, { status: 400 });
 }

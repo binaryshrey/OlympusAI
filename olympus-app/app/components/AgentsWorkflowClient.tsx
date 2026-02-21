@@ -34,12 +34,21 @@ interface TaskResult {
   githubPrdUrl?: string;
   jiraUpdated?: boolean;
   jiraIssueKey?: string;
+  // Architecture
+  architectureContent?: string;
+  githubArchitectureUrl?: string;
+  // Tech Stack
+  techStackContent?: string;
+  githubTechStackUrl?: string;
+  // Architect Jira
+  architectJiraUpdated?: boolean;
+  architectJiraIssueKey?: string;
   // Error
   error?: string;
 }
 
 interface Task {
-  id: "jira" | "github" | "prd";
+  id: "jira" | "github" | "prd" | "architecture" | "techstack" | "architect_jira";
   label: string;
   status: TaskStatus;
   result?: TaskResult;
@@ -59,6 +68,18 @@ const TASK_DEFS: Pick<Task, "id" | "label">[] = [
     id: "prd",
     label: "Create Product Requirements Document (PRD)",
   },
+  {
+    id: "architect_jira",
+    label: "Update Jira",
+  },
+  {
+    id: "architecture",
+    label: "System Architecture",
+  },
+  {
+    id: "techstack",
+    label: "Technology Stack Recommendations",
+  },
 ];
 
 interface AgentsWorkflowClientProps {
@@ -73,9 +94,11 @@ export default function AgentsWorkflowClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"tasks" | "workflow">("tasks");
   const [tasks, setTasks] = useState<Task[]>(
-    TASK_DEFS.map((t) => ({ ...t, status: "pending" }))
+    TASK_DEFS.map((t) => ({ ...t, status: "pending" })),
   );
   const [prdExpanded, setPrdExpanded] = useState(false);
+  const [architectureExpanded, setArchitectureExpanded] = useState(false);
+  const [techStackExpanded, setTechStackExpanded] = useState(false);
 
   const [runningAccordion, setRunningAccordion] = useState<string | null>(null);
 
@@ -92,7 +115,7 @@ export default function AgentsWorkflowClient({
       if (idx === -1) continue;
 
       setTasks((prev) =>
-        prev.map((t, i) => (i === idx ? { ...t, status: "running" } : t))
+        prev.map((t, i) => (i === idx ? { ...t, status: "running" } : t)),
       );
 
       try {
@@ -101,6 +124,9 @@ export default function AgentsWorkflowClient({
         if (id === "prd") {
           if (completedResults.jira) body.jiraResult = completedResults.jira;
           if (completedResults.github) body.githubResult = completedResults.github;
+        }
+        if (id === "architect_jira") {
+          if (completedResults.jira) body.jiraResult = completedResults.jira;
         }
 
         const res = await fetch("/api/agents/run", {
@@ -113,23 +139,25 @@ export default function AgentsWorkflowClient({
         if (!res.ok) {
           setTasks((prev) =>
             prev.map((t, i) =>
-              i === idx ? { ...t, status: "error", result: { error: data.error } } : t
-            )
+              i === idx
+                ? { ...t, status: "error", result: { error: data.error } }
+                : t,
+            ),
           );
         } else {
           completedResults[id] = data;
           setTasks((prev) =>
             prev.map((t, i) =>
-              i === idx ? { ...t, status: "done", result: data } : t
-            )
+              i === idx ? { ...t, status: "done", result: data } : t,
+            ),
           );
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unexpected error";
         setTasks((prev) =>
           prev.map((t, i) =>
-            i === idx ? { ...t, status: "error", result: { error: msg } } : t
-          )
+            i === idx ? { ...t, status: "error", result: { error: msg } } : t,
+          ),
         );
       }
     }
@@ -147,7 +175,7 @@ export default function AgentsWorkflowClient({
   };
 
   const allDone = tasks.every(
-    (t) => t.status === "done" || t.status === "error"
+    (t) => t.status === "done" || t.status === "error",
   );
 
   const StatusIcon = ({ status }: { status: TaskStatus }) => {
@@ -158,9 +186,7 @@ export default function AgentsWorkflowClient({
         <Loader2 className="h-5 w-5 animate-spin text-blue-500 shrink-0" />
       );
     if (status === "done")
-      return (
-        <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-      );
+      return <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />;
     return <XCircle className="h-5 w-5 text-red-500 shrink-0" />;
   };
 
@@ -212,7 +238,12 @@ export default function AgentsWorkflowClient({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4 pt-4">
-                  {tasks.map((task) => (
+                  {tasks
+                    .filter(
+                      (t) =>
+                        t.id === "jira" || t.id === "github" || t.id === "prd",
+                    )
+                    .map((task) => (
                       <div key={task.id} className="space-y-2">
                         <div className="flex items-start gap-3">
                           <StatusIcon status={task.status} />
@@ -234,7 +265,8 @@ export default function AgentsWorkflowClient({
                                 <div className="mt-2 space-y-1">
                                   <div className="flex items-center gap-3">
                                     <p className="text-xs text-gray-500">
-                                      {task.result.issues.length} stories created in{" "}
+                                      {task.result.issues.length} stories
+                                      created in{" "}
                                       <span className="font-medium">
                                         {task.result.projectKey}
                                       </span>
@@ -304,11 +336,13 @@ export default function AgentsWorkflowClient({
                                       PRD.md committed to GitHub
                                     </a>
                                   )}
-                                  {task.result.jiraUpdated && task.result.jiraIssueKey && (
-                                    <p className="text-xs text-green-600 font-medium">
-                                      {task.result.jiraIssueKey} moved to In Progress
-                                    </p>
-                                  )}
+                                  {task.result.jiraUpdated &&
+                                    task.result.jiraIssueKey && (
+                                      <p className="text-xs text-green-600 font-medium">
+                                        {task.result.jiraIssueKey} moved to In
+                                        Progress
+                                      </p>
+                                    )}
                                   <button
                                     onClick={() => setPrdExpanded(!prdExpanded)}
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
@@ -340,7 +374,9 @@ export default function AgentsWorkflowClient({
                     ))}
                   <div className="pt-2 border-t border-gray-100">
                     <button
-                      onClick={() => runAccordion("item-1", ["jira", "github", "prd"])}
+                      onClick={() =>
+                        runAccordion("item-1", ["jira", "github", "prd"])
+                      }
                       disabled={!!runningAccordion}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -361,24 +397,144 @@ export default function AgentsWorkflowClient({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4 pt-4">
-                  <p className="text-gray-700">
-                    The AI Architect has designed the system architecture and
-                    technical specifications for your project.
-                  </p>
-                  <div className="bg-gray-50 p-4 rounded-md">
-                    <h4 className="font-semibold mb-2">Key Deliverables:</h4>
-                    <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li>System Architecture Diagram</li>
-                      <li>Technology Stack Recommendations</li>
-                      <li>Database Schema Design</li>
-                      <li>API Design and Documentation</li>
-                    </ul>
-                  </div>
+                  {tasks
+                    .filter(
+                      (t) => t.id === "architect_jira" || t.id === "architecture" || t.id === "techstack",
+                    )
+                    .map((task) => (
+                      <div key={task.id} className="space-y-2">
+                        <div className="flex items-start gap-3">
+                          <StatusIcon status={task.status} />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm leading-snug ${
+                                task.status === "pending"
+                                  ? "text-gray-600"
+                                  : "text-gray-800 font-medium"
+                              }`}
+                            >
+                              {task.label}
+                              {task.id === "techstack" &&
+                                task.status === "pending" && (
+                                  <span className="ml-1.5 text-xs text-gray-400 font-normal"></span>
+                                )}
+                            </p>
+
+                            {/* Architect Jira result */}
+                            {task.id === "architect_jira" &&
+                              task.status === "done" && (
+                                <div className="mt-1">
+                                  {task.result?.architectJiraUpdated && task.result.architectJiraIssueKey ? (
+                                    <p className="text-xs text-green-600 font-medium">
+                                      {task.result.architectJiraIssueKey} moved to In Progress
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-gray-500">Jira updated</p>
+                                  )}
+                                </div>
+                              )}
+
+                            {/* Architecture result */}
+                            {task.id === "architecture" &&
+                              task.status === "done" &&
+                              task.result?.architectureContent && (
+                                <div className="mt-2 space-y-1.5">
+                                  {task.result.githubArchitectureUrl && (
+                                    <a
+                                      href={task.result.githubArchitectureUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3 shrink-0" />
+                                      ARCHITECTURE.md committed to GitHub
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() =>
+                                      setArchitectureExpanded(
+                                        !architectureExpanded,
+                                      )
+                                    }
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                  >
+                                    {architectureExpanded ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                    {architectureExpanded
+                                      ? "Hide Architecture"
+                                      : "View Architecture"}
+                                  </button>
+                                  {architectureExpanded && (
+                                    <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
+                                      {task.result.architectureContent}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                            {/* Tech Stack result */}
+                            {task.id === "techstack" &&
+                              task.status === "done" &&
+                              task.result?.techStackContent && (
+                                <div className="mt-2 space-y-1.5">
+                                  {task.result.githubTechStackUrl && (
+                                    <a
+                                      href={task.result.githubTechStackUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3 shrink-0" />
+                                      TECH_STACK.md committed to GitHub
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() =>
+                                      setTechStackExpanded(!techStackExpanded)
+                                    }
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                  >
+                                    {techStackExpanded ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                    {techStackExpanded
+                                      ? "Hide Tech Stack"
+                                      : "View Tech Stack"}
+                                  </button>
+                                  {techStackExpanded && (
+                                    <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
+                                      {task.result.techStackContent}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                            {/* Error */}
+                            {task.status === "error" && task.result?.error && (
+                              <p className="mt-1 text-xs text-red-600">
+                                {task.result.error}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   <div className="pt-2 border-t border-gray-100">
                     <button
-                      disabled
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md opacity-40 cursor-not-allowed"
+                      onClick={() =>
+                        runAccordion("item-2", ["architect_jira", "architecture", "techstack"])
+                      }
+                      disabled={!!runningAccordion}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
+                      {runningAccordion === "item-2" && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      )}
                       Run Tasks
                     </button>
                   </div>
