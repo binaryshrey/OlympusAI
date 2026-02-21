@@ -145,7 +145,7 @@ export default function SetupClient() {
 
   const handleContinue = () => {
     setIsLoading(true);
-    router.push("/meeting");
+    router.push("/onboard-team/setup");
   };
 
   return (
@@ -251,7 +251,7 @@ export default function SetupClient() {
             Processing...
           </>
         ) : (
-          "Continue"
+          "Continue To Device Setup"
         )}
       </button>
     </div>
