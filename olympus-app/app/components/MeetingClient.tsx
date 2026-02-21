@@ -21,14 +21,12 @@ interface MeetingClientProps {
   autoStart?: boolean;
   duration?: number;
   user: any;
-  projectId: string;
 }
 
 export default function MeetingClient({
   autoStart = false,
   duration = 3,
   user,
-  projectId,
 }: MeetingClientProps) {
   const router = useRouter();
   const [isConnected, setIsConnected] = useState(false);
@@ -163,7 +161,7 @@ export default function MeetingClient({
       console.error("[Meeting] Failed to save conversation:", err);
     }
 
-    router.push(`/summary/${projectId}`);
+    router.push("/review");
   };
 
   const handleToggle = () => {

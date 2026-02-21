@@ -242,27 +242,29 @@ export default function SummaryClient({ user, projectId }: SummaryClientProps) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load project from database using the projectId prop
-        const project = await getProject(projectId);
-        console.log("[Summary] Loaded project from database:", project);
+        if (projectId) {
+          // Load project from database using the projectId prop
+          const project = await getProject(projectId);
+          console.log("[Summary] Loaded project from database:", project);
 
-        setFormData({
-          projectName: project.project_name || "",
-          jiraId: project.jira_id || "",
-          targetPlatform: project.target_platform || "",
-          intendedUsers: project.intended_users || "",
-          description: project.description || "",
-          duration: project.duration || "60",
-          language: project.language || "English",
-          prioritization: project.prioritization || "",
-          documentationDepth: project.documentation_depth || "",
-        });
+          setFormData({
+            projectName: project.project_name || "",
+            jiraId: project.jira_id || "",
+            targetPlatform: project.target_platform || "",
+            intendedUsers: project.intended_users || "",
+            description: project.description || "",
+            duration: project.duration || "60",
+            language: project.language || "English",
+            prioritization: project.prioritization || "",
+            documentationDepth: project.documentation_depth || "",
+          });
 
-        if (project.chat_summary) {
-          setChatSummary(project.chat_summary);
+          if (project.chat_summary) {
+            setChatSummary(project.chat_summary);
+          }
         }
 
-        // Load meeting conversation from sessionStorage if available
+        // Load meeting conversation from sessionStorage
         if (typeof window !== "undefined") {
           const conversationRaw = sessionStorage.getItem(
             "meeting_conversation",
@@ -271,16 +273,13 @@ export default function SummaryClient({ user, projectId }: SummaryClientProps) {
             const parsed = JSON.parse(conversationRaw);
             setMessages(parsed);
 
-            // Create chat summary from messages if not already set from database
-            if (!project.chat_summary) {
-              const summary = parsed
-                .map(
-                  (msg: Message) =>
-                    `${msg.role === "user" ? "You" : "AI PM"}: ${msg.text}`,
-                )
-                .join("\n\n");
-              setChatSummary(summary);
-            }
+            const summary = parsed
+              .map(
+                (msg: Message) =>
+                  `${msg.role === "user" ? "You" : "AI PM"}: ${msg.text}`,
+              )
+              .join("\n\n");
+            setChatSummary(summary);
             console.log("[Summary] Loaded conversation:", parsed);
           }
         }

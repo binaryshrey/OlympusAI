@@ -13,39 +13,33 @@ export default function MeetingWrapper({ user }: MeetingWrapperProps) {
   const searchParams = useSearchParams();
   const isAuto = searchParams.get("auto") === "true";
 
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [duration, setDuration] = useState<number>(2);
+  const [ready, setReady] = useState(false);
+  const [duration, setDuration] = useState<number>(3);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("onboard_form_data");
 
-    if (!raw || !JSON.parse(raw).projectId) {
-      if (isAuto) {
-        // Coming from /pm-meeting device setup — start without requiring onboard form
-        setProjectId("auto");
-        return;
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.duration) {
+        const match = String(data.duration).match(/(\d+)/);
+        if (match) setDuration(parseInt(match[1]));
       }
+    } else if (!isAuto) {
       router.replace("/onboard");
       return;
     }
 
-    const data = JSON.parse(raw);
-    setProjectId(data.projectId);
-
-    if (data.duration) {
-      const match = String(data.duration).match(/(\d+)/);
-      if (match) setDuration(parseInt(match[1]));
-    }
+    setReady(true);
   }, []);
 
-  if (!projectId) return null;
+  if (!ready) return null;
 
   return (
     <MeetingClient
       autoStart={isAuto || true}
       duration={duration}
       user={user}
-      projectId={projectId}
     />
   );
 }
