@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { insertProjectRecord } from "@/lib/supabase";
 
 interface Message {
   role: "user" | "agent" | "system";
@@ -78,9 +79,19 @@ export default function ReviewClient({ user }: ReviewClientProps) {
       if (!projectName.trim()) throw new Error("Project name is required");
       if (!description.trim()) throw new Error("Given Requirements are required");
 
+      const saved = await insertProjectRecord({
+        user_id: user.id,
+        user_email: user.email ?? undefined,
+        project_name: projectName.trim(),
+        prioritization,
+        documentation_depth: documentationDepth,
+        given_requirements: description.trim(),
+        meeting_transcript: chatSummary || undefined,
+      });
+
       toast.success("Review saved!");
       setTimeout(() => {
-        router.push("/agents-workflow");
+        router.push(`/agents-workflow/${saved.id}`);
       }, 1000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred";

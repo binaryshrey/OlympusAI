@@ -9,7 +9,7 @@ import {
   StepperTitle,
   StepperTrigger,
 } from "@/app/components/ui/stepper";
-import { getProject } from "@/lib/supabase";
+import { getProjectRecord } from "@/lib/supabase";
 import { notFound } from "next/navigation";
 
 const steps = [
@@ -33,7 +33,7 @@ export default async function AgentsWorkflow({
   // Fetch project from database
   let project;
   try {
-    project = await getProject(resolvedParams.id);
+    project = await getProjectRecord(resolvedParams.id);
 
     // Verify the project belongs to the current user
     if (project.user_id !== user.id) {

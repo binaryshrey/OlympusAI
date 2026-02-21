@@ -62,10 +62,9 @@ export default function AgentsWorkflowClient({
                 <div className="bg-gray-50 p-4 rounded-md">
                   <h4 className="font-semibold mb-2">Key Deliverables:</h4>
                   <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>Product Requirements Document (PRD)</li>
-                    <li>User Stories and Acceptance Criteria</li>
-                    <li>Feature Prioritization Matrix</li>
-                    <li>Project Timeline and Milestones</li>
+                    <li>Jira User Stories for AI Product Manager, AI Architect, AI Developer, AI QA Engineer, AI DevOps Engineer</li>
+                    <li>Create Github Repository</li>
+                    <li>Create Product Requirements Document (PRD)</li>
                   </ul>
                 </div>
               </div>

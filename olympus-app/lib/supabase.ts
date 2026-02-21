@@ -166,6 +166,49 @@ export async function getGithubIntegration(userId: string) {
   return data as GithubIntegration | null;
 }
 
+// ProjectsDB
+export interface ProjectsDBRecord {
+  id?: string;
+  user_id: string;
+  user_email?: string;
+  project_name: string;
+  prioritization: string;
+  documentation_depth: string;
+  given_requirements: string;
+  meeting_transcript?: string;
+  created_at?: string;
+}
+
+export async function insertProjectRecord(record: ProjectsDBRecord) {
+  const { data, error } = await supabase
+    .from("ProjectsDB")
+    .insert(record)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error inserting into ProjectsDB:", error);
+    throw error;
+  }
+
+  return data as ProjectsDBRecord;
+}
+
+export async function getProjectRecord(id: string) {
+  const { data, error } = await supabase
+    .from("ProjectsDB")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching from ProjectsDB:", error);
+    throw error;
+  }
+
+  return data as ProjectsDBRecord;
+}
+
 // Slack Integration
 export interface SlackIntegration {
   id?: string;
