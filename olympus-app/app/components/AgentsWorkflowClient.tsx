@@ -1,13 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Circle,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/app/components/ui/accordion";
+
+type TaskStatus = "pending" | "running" | "done" | "error";
+
+interface TaskResult {
+  // Jira
+  issues?: { key: string; summary: string }[];
+  siteUrl?: string;
+  projectKey?: string;
+  boardUrl?: string;
+  // GitHub
+  repoUrl?: string;
+  repoName?: string;
+  // PRD
+  prd?: string;
+  githubPrdUrl?: string;
+  jiraUpdated?: boolean;
+  jiraIssueKey?: string;
+  // Error
+  error?: string;
+}
+
+interface Task {
+  id: "jira" | "github" | "prd";
+  label: string;
+  status: TaskStatus;
+  result?: TaskResult;
+}
+
+const TASK_DEFS: Pick<Task, "id" | "label">[] = [
+  {
+    id: "jira",
+    label:
+      "Jira User Stories for AI Product Manager, AI Architect, AI Developer, AI QA Engineer, AI DevOps Engineer",
+  },
+  {
+    id: "github",
+    label: "Create GitHub Repository",
+  },
+  {
+    id: "prd",
+    label: "Create Product Requirements Document (PRD)",
+  },
+];
 
 interface AgentsWorkflowClientProps {
   user: any;
@@ -19,20 +71,82 @@ export default function AgentsWorkflowClient({
   projectId,
 }: AgentsWorkflowClientProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"tasks" | "workflow">("tasks");
+  const [tasks, setTasks] = useState<Task[]>(
+    TASK_DEFS.map((t) => ({ ...t, status: "pending" }))
+  );
+  const [prdExpanded, setPrdExpanded] = useState(false);
 
-  useEffect(() => {
-    // Simulate loading project data
-    setLoading(false);
-  }, [projectId]);
+  const runTasks = async () => {
+    const completedResults: Record<string, any> = {};
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+    for (let i = 0; i < TASK_DEFS.length; i++) {
+      setTasks((prev) =>
+        prev.map((t, idx) => (idx === i ? { ...t, status: "running" } : t))
+      );
+
+      try {
+        const body: Record<string, any> = { task: TASK_DEFS[i].id, projectId };
+
+        // Pass prior results so prd task can commit to GitHub + update Jira
+        if (TASK_DEFS[i].id === "prd") {
+          if (completedResults.jira) body.jiraResult = completedResults.jira;
+          if (completedResults.github) body.githubResult = completedResults.github;
+        }
+
+        const res = await fetch("/api/agents/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setTasks((prev) =>
+            prev.map((t, idx) =>
+              idx === i
+                ? { ...t, status: "error", result: { error: data.error } }
+                : t
+            )
+          );
+        } else {
+          completedResults[TASK_DEFS[i].id] = data;
+          setTasks((prev) =>
+            prev.map((t, idx) =>
+              idx === i ? { ...t, status: "done", result: data } : t
+            )
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unexpected error";
+        setTasks((prev) =>
+          prev.map((t, idx) =>
+            idx === i
+              ? { ...t, status: "error", result: { error: msg } }
+              : t
+          )
+        );
+      }
+    }
+  };
+
+  const allDone = tasks.every(
+    (t) => t.status === "done" || t.status === "error"
+  );
+
+  const StatusIcon = ({ status }: { status: TaskStatus }) => {
+    if (status === "pending")
+      return <Circle className="h-5 w-5 text-gray-300 shrink-0" />;
+    if (status === "running")
+      return (
+        <Loader2 className="h-5 w-5 animate-spin text-blue-500 shrink-0" />
+      );
+    if (status === "done")
+      return (
+        <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+      );
+    return <XCircle className="h-5 w-5 text-red-500 shrink-0" />;
+  };
 
   return (
     <div className="space-y-6">
@@ -46,134 +160,290 @@ export default function AgentsWorkflowClient({
         </p>
       </div>
 
-      {/* AI Agents Accordion */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-8 shadow-sm">
-        <Accordion type="single" collapsible defaultValue="item-1">
-          <AccordionItem value="item-1">
-            <AccordionTrigger className="text-lg font-semibold">
-              AI Product Manager
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-4">
-                <p className="text-gray-700">
-                  The AI Product Manager has analyzed your requirements and
-                  created a comprehensive product roadmap.
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="font-semibold mb-2">Key Deliverables:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>Jira User Stories for AI Product Manager, AI Architect, AI Developer, AI QA Engineer, AI DevOps Engineer</li>
-                    <li>Create Github Repository</li>
-                    <li>Create Product Requirements Document (PRD)</li>
-                  </ul>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="item-2">
-            <AccordionTrigger className="text-lg font-semibold">
-              AI Architect
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-4">
-                <p className="text-gray-700">
-                  The AI Architect has designed the system architecture and
-                  technical specifications for your project.
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="font-semibold mb-2">Key Deliverables:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>System Architecture Diagram</li>
-                    <li>Technology Stack Recommendations</li>
-                    <li>Database Schema Design</li>
-                    <li>API Design and Documentation</li>
-                  </ul>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="item-3">
-            <AccordionTrigger className="text-lg font-semibold">
-              AI Developer
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-4">
-                <p className="text-gray-700">
-                  The AI Developer has implemented the core functionality and
-                  features of your application.
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="font-semibold mb-2">Key Deliverables:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>Source Code Implementation</li>
-                    <li>Component Library</li>
-                    <li>Integration Tests</li>
-                    <li>Code Documentation</li>
-                  </ul>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="item-4">
-            <AccordionTrigger className="text-lg font-semibold">
-              AI QA Engineer
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-4">
-                <p className="text-gray-700">
-                  The AI QA Engineer has performed comprehensive testing to
-                  ensure quality and reliability.
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="font-semibold mb-2">Key Deliverables:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>Test Plan and Test Cases</li>
-                    <li>Automated Test Scripts</li>
-                    <li>Bug Reports and Resolution</li>
-                    <li>Quality Assurance Report</li>
-                  </ul>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="item-5">
-            <AccordionTrigger className="text-lg font-semibold">
-              AI DevOps Engineer
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-4">
-                <p className="text-gray-700">
-                  The AI DevOps Engineer has set up the deployment pipeline and
-                  infrastructure.
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="font-semibold mb-2">Key Deliverables:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    <li>CI/CD Pipeline Configuration</li>
-                    <li>Infrastructure as Code (IaC)</li>
-                    <li>Monitoring and Logging Setup</li>
-                    <li>Deployment Documentation</li>
-                  </ul>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div>
-
-      {/* Action Button */}
-      <div className="flex justify-end">
+      {/* Tab bar */}
+      <div className="flex items-center justify-between border-b border-gray-200">
+        <div className="flex gap-1">
+          {(["tasks", "workflow"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+                activeTab === tab
+                  ? "border-black text-black"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
         <button
-          onClick={() => router.push("/dashboard")}
-          className="px-6 py-3 bg-black text-white font-semibold rounded-md hover:bg-gray-800 transition-colors"
+          onClick={runTasks}
+          className="mb-1 px-4 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
         >
-          Continue to Deployment
+          Run Workflow
         </button>
       </div>
+
+      {/* Tasks tab */}
+      {activeTab === "tasks" && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-8 shadow-sm">
+          <Accordion type="single" collapsible defaultValue="item-1">
+            {/* ── AI Product Manager ── */}
+            <AccordionItem value="item-1">
+              <AccordionTrigger className="text-lg font-semibold">
+                AI Product Manager
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-4">
+                  {tasks.map((task) => (
+                    <div key={task.id} className="space-y-2">
+                      <div className="flex items-start gap-3">
+                        <StatusIcon status={task.status} />
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm leading-snug ${
+                              task.status === "pending"
+                                ? "text-gray-400"
+                                : "text-gray-800 font-medium"
+                            }`}
+                          >
+                            {task.label}
+                          </p>
+
+                          {/* Jira result */}
+                          {task.id === "jira" &&
+                            task.status === "done" &&
+                            task.result?.issues && (
+                              <div className="mt-2 space-y-1">
+                                <div className="flex items-center gap-3">
+                                  <p className="text-xs text-gray-500">
+                                    {task.result.issues.length} stories created in{" "}
+                                    <span className="font-medium">
+                                      {task.result.projectKey}
+                                    </span>
+                                  </p>
+                                  {task.result.boardUrl && (
+                                    <a
+                                      href={task.result.boardUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3 shrink-0" />
+                                      View Board
+                                    </a>
+                                  )}
+                                </div>
+                                {task.result.issues.map((issue) => (
+                                  <a
+                                    key={issue.key}
+                                    href={`${task.result?.siteUrl}/browse/${issue.key}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate"
+                                  >
+                                    <ExternalLink className="h-3 w-3 shrink-0" />
+                                    <span className="font-mono font-medium">
+                                      {issue.key}
+                                    </span>
+                                    <span className="text-gray-600 truncate">
+                                      {issue.summary}
+                                    </span>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+
+                          {/* GitHub result */}
+                          {task.id === "github" &&
+                            task.status === "done" &&
+                            task.result?.repoUrl && (
+                              <div className="mt-2">
+                                <a
+                                  href={task.result.repoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                >
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                  {task.result.repoName}
+                                </a>
+                              </div>
+                            )}
+
+                          {/* PRD result */}
+                          {task.id === "prd" &&
+                            task.status === "done" &&
+                            task.result?.prd && (
+                              <div className="mt-2 space-y-1.5">
+                                {/* GitHub commit link */}
+                                {task.result.githubPrdUrl && (
+                                  <a
+                                    href={task.result.githubPrdUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                  >
+                                    <ExternalLink className="h-3 w-3 shrink-0" />
+                                    PRD.md committed to GitHub
+                                  </a>
+                                )}
+                                {/* Jira in-progress badge */}
+                                {task.result.jiraUpdated && task.result.jiraIssueKey && (
+                                  <p className="text-xs text-green-600 font-medium">
+                                    {task.result.jiraIssueKey} moved to In Progress
+                                  </p>
+                                )}
+                                {/* Expandable PRD */}
+                                <button
+                                  onClick={() => setPrdExpanded(!prdExpanded)}
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                >
+                                  {prdExpanded ? (
+                                    <ChevronUp className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
+                                  {prdExpanded ? "Hide PRD" : "View PRD"}
+                                </button>
+                                {prdExpanded && (
+                                  <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
+                                    {task.result.prd}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                          {/* Error */}
+                          {task.status === "error" && task.result?.error && (
+                            <p className="mt-1 text-xs text-red-600">
+                              {task.result.error}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* ── AI Architect ── */}
+            <AccordionItem value="item-2">
+              <AccordionTrigger className="text-lg font-semibold">
+                AI Architect
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-4">
+                  <p className="text-gray-700">
+                    The AI Architect has designed the system architecture and
+                    technical specifications for your project.
+                  </p>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h4 className="font-semibold mb-2">Key Deliverables:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>System Architecture Diagram</li>
+                      <li>Technology Stack Recommendations</li>
+                      <li>Database Schema Design</li>
+                      <li>API Design and Documentation</li>
+                    </ul>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* ── AI Developer ── */}
+            <AccordionItem value="item-3">
+              <AccordionTrigger className="text-lg font-semibold">
+                AI Developer
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-4">
+                  <p className="text-gray-700">
+                    The AI Developer has implemented the core functionality and
+                    features of your application.
+                  </p>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h4 className="font-semibold mb-2">Key Deliverables:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>Source Code Implementation</li>
+                      <li>Component Library</li>
+                      <li>Integration Tests</li>
+                      <li>Code Documentation</li>
+                    </ul>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* ── AI QA Engineer ── */}
+            <AccordionItem value="item-4">
+              <AccordionTrigger className="text-lg font-semibold">
+                AI QA Engineer
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-4">
+                  <p className="text-gray-700">
+                    The AI QA Engineer has performed comprehensive testing to
+                    ensure quality and reliability.
+                  </p>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h4 className="font-semibold mb-2">Key Deliverables:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>Test Plan and Test Cases</li>
+                      <li>Automated Test Scripts</li>
+                      <li>Bug Reports and Resolution</li>
+                      <li>Quality Assurance Report</li>
+                    </ul>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* ── AI DevOps Engineer ── */}
+            <AccordionItem value="item-5">
+              <AccordionTrigger className="text-lg font-semibold">
+                AI DevOps Engineer
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-4">
+                  <p className="text-gray-700">
+                    The AI DevOps Engineer has set up the deployment pipeline
+                    and infrastructure.
+                  </p>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h4 className="font-semibold mb-2">Key Deliverables:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>CI/CD Pipeline Configuration</li>
+                      <li>Infrastructure as Code (IaC)</li>
+                      <li>Monitoring and Logging Setup</li>
+                      <li>Deployment Documentation</li>
+                    </ul>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      )}
+
+      {/* Workflow tab */}
+      {activeTab === "workflow" && (
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm min-h-96" />
+      )}
+
+      {/* Continue button — shown only after all tasks settle */}
+      {allDone && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="px-6 py-3 bg-black text-white font-semibold rounded-md hover:bg-gray-800 transition-colors"
+          >
+            Continue to Deployment
+          </button>
+        </div>
+      )}
     </div>
   );
 }
