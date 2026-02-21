@@ -15,9 +15,9 @@ import { notFound } from "next/navigation";
 const steps = [
   { title: "Onboard" },
   { title: "PM Meeting" },
-  { title: "PRD Summary" },
+  { title: "Review" },
   { title: "AI Agents Workflow" },
-  { title: "Deployment" },
+  { title: "Preview" },
 ];
 
 export default async function AgentsWorkflow({

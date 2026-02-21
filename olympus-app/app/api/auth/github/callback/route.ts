@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const installationId = searchParams.get("installation_id");
   const setupAction = searchParams.get("setup_action"); // "install" | "update"
 
-  const setupUrl = new URL("/setup", request.url);
+  const setupUrl = new URL("/onboard-team", request.url);
 
   if (!installationId) {
     setupUrl.searchParams.set("error", "github_missing_installation");

@@ -210,9 +210,9 @@ export default function OnboardForm({ user }: OnboardFormProps) {
 
       toast.success("Project saved successfully!");
 
-      // Navigate to meeting page with project ID
+      // Navigate to meeting page
       setTimeout(() => {
-        router.push(`/meeting/${savedProject.id}`);
+        router.push("/meeting");
       }, 1000);
     } catch (err) {
       console.error("[Onboard] Failed to save project:", err);

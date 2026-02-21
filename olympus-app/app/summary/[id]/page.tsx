@@ -17,7 +17,7 @@ const steps = [
   { title: "PM Meeting" },
   { title: "Review" },
   { title: "AI Agents Workflow" },
-  { title: "Deployment" },
+  { title: "Preview" },
 ];
 
 export default async function Summary({

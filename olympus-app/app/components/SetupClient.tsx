@@ -54,40 +54,61 @@ export default function SetupClient() {
 
     if (params.get("jira") === "connected") {
       setIntegrations((prev) =>
-        prev.map((i) => (i.id === "jira" ? { ...i, connected: true } : i))
+        prev.map((i) => (i.id === "jira" ? { ...i, connected: true } : i)),
       );
-      setStatusMessage({ type: "success", text: "Jira connected ✓ — AI PM now has access to your workspace" });
-      window.history.replaceState({}, "", "/setup");
+      setStatusMessage({
+        type: "success",
+        text: "Jira connected ✓ — AI PM now has access to your workspace",
+      });
+      window.history.replaceState({}, "", "/onboard-team");
     } else if (params.get("github") === "connected") {
       setIntegrations((prev) =>
-        prev.map((i) => (i.id === "github" ? { ...i, connected: true } : i))
+        prev.map((i) => (i.id === "github" ? { ...i, connected: true } : i)),
       );
-      setStatusMessage({ type: "success", text: "GitHub connected ✓ — Agents can now push code to your repos" });
-      window.history.replaceState({}, "", "/setup");
+      setStatusMessage({
+        type: "success",
+        text: "GitHub connected ✓ — Agents can now push code to your repos",
+      });
+      window.history.replaceState({}, "", "/onboard-team");
     } else if (params.get("slack") === "connected") {
       setIntegrations((prev) =>
-        prev.map((i) => (i.id === "slack" ? { ...i, connected: true } : i))
+        prev.map((i) => (i.id === "slack" ? { ...i, connected: true } : i)),
       );
-      setStatusMessage({ type: "success", text: "Slack connected ✓ — Agents can now message your workspace" });
-      window.history.replaceState({}, "", "/setup");
+      setStatusMessage({
+        type: "success",
+        text: "Slack connected ✓ — Agents can now message your workspace",
+      });
+      window.history.replaceState({}, "", "/onboard-team");
     } else if (params.get("error")) {
-      setStatusMessage({ type: "error", text: "Failed to connect. Please try again." });
-      window.history.replaceState({}, "", "/setup");
+      setStatusMessage({
+        type: "error",
+        text: "Failed to connect. Please try again.",
+      });
+      window.history.replaceState({}, "", "/onboard-team");
     }
 
     // Always check existing connections in parallel
     Promise.all([
-      fetch("/api/auth/jira/status").then((r) => r.json()).catch(() => ({ connected: false })),
-      fetch("/api/auth/github/status").then((r) => r.json()).catch(() => ({ connected: false })),
-      fetch("/api/auth/slack/status").then((r) => r.json()).catch(() => ({ connected: false })),
+      fetch("/api/auth/jira/status")
+        .then((r) => r.json())
+        .catch(() => ({ connected: false })),
+      fetch("/api/auth/github/status")
+        .then((r) => r.json())
+        .catch(() => ({ connected: false })),
+      fetch("/api/auth/slack/status")
+        .then((r) => r.json())
+        .catch(() => ({ connected: false })),
     ]).then(([jira, github, slack]) => {
       setIntegrations((prev) =>
         prev.map((i) => {
-          if (i.id === "jira" && jira.connected) return { ...i, connected: true };
-          if (i.id === "github" && github.connected) return { ...i, connected: true };
-          if (i.id === "slack" && slack.connected) return { ...i, connected: true };
+          if (i.id === "jira" && jira.connected)
+            return { ...i, connected: true };
+          if (i.id === "github" && github.connected)
+            return { ...i, connected: true };
+          if (i.id === "slack" && slack.connected)
+            return { ...i, connected: true };
           return i;
-        })
+        }),
       );
     });
   }, []);
@@ -116,15 +137,15 @@ export default function SetupClient() {
       prev.map((integration) =>
         integration.id === id
           ? { ...integration, connected: true }
-          : integration
-      )
+          : integration,
+      ),
     );
     setConnectingId(null);
   };
 
   const handleContinue = () => {
     setIsLoading(true);
-    router.push("/onboard");
+    router.push("/meeting");
   };
 
   return (
@@ -132,12 +153,8 @@ export default function SetupClient() {
       {/* Header */}
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Olympus AI Tools Setup
+          OlympusAI Configuration Setup
         </h1>
-        <p className="text-gray-600">
-          Connect your tools so our AI Product Manager can orchestrate
-          end-to-end software delivery for you.
-        </p>
       </div>
 
       {/* Status banner */}
@@ -153,6 +170,16 @@ export default function SetupClient() {
         </div>
       )}
 
+      {/* Block 1: Configuration */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <h2 className="text-xl font-semibold text-gray-900">Configuration</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Connect your tools so our AI Product Manager can orchestrate
+          end-to-end software delivery for you.
+        </p>
+      </div>
+
+      {/* Block 2: Apps */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
         <div className="space-y-4">
           {integrations.map((integration) => (

@@ -11,7 +11,6 @@ import {
 } from "../components/ui/stepper";
 
 const steps = [
-  { title: "Setup" },
   { title: "Onboard" },
   { title: "PM Meeting" },
   { title: "Review" },

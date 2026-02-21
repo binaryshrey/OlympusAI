@@ -1,6 +1,14 @@
-import { redirect } from "next/navigation";
+import { withAuth } from "@workos-inc/authkit-nextjs";
+import MeetingWrapper from "@/app/components/MeetingWrapper";
 
 export default async function Meeting() {
-  // Redirect to dashboard since we now use /meeting/[id]
-  redirect("/dashboard");
+  const { user } = await withAuth();
+
+  if (!user) return null;
+
+  return (
+    <div className="relative min-h-screen">
+      <MeetingWrapper user={user} />
+    </div>
+  );
 }

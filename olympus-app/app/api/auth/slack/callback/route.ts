@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get("state");
   const error = searchParams.get("error");
 
-  const setupUrl = new URL("/setup", request.url);
+  const setupUrl = new URL("/onboard-team", request.url);
 
   if (error) {
     setupUrl.searchParams.set("error", "slack_auth_failed");
