@@ -1,6 +1,6 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import ProfileMenu from "../../components/ProfileMenu";
-import DeviceSetupClient from "../../components/DeviceSetupClient";
+import ProfileMenu from "../components/ProfileMenu";
+import DeviceSetupClient from "../components/DeviceSetupClient";
 import {
   Stepper,
   StepperIndicator,
@@ -8,7 +8,7 @@ import {
   StepperNav,
   StepperTitle,
   StepperTrigger,
-} from "../../components/ui/stepper";
+} from "../components/ui/stepper";
 
 const steps = [
   { title: "Onboard" },

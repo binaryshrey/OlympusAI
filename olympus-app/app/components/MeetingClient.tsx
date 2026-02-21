@@ -26,7 +26,7 @@ interface MeetingClientProps {
 
 export default function MeetingClient({
   autoStart = false,
-  duration = 2,
+  duration = 3,
   user,
   projectId,
 }: MeetingClientProps) {
@@ -354,7 +354,7 @@ export default function MeetingClient({
             <ProfileMenu user={user} />
           </div>
           <h1 className="text-white text-3xl font-medium">
-            Nebula AI Product Manager Meeting
+            Olympus AI Product Manager Meeting
           </h1>
 
           <div className="flex items-center gap-4 mt-1">
@@ -510,13 +510,13 @@ export default function MeetingClient({
         <button
           onClick={handleToggle}
           disabled={isLoading}
-          className="px-10 py-3 rounded-full font-semibold text-white shadow-2xl transition-all transform flex items-center gap-3 cursor-pointer disabled:opacity-50"
+          className={`px-10 py-3 rounded-full font-semibold shadow-2xl transition-all transform flex items-center gap-3 cursor-pointer disabled:opacity-50 ${!isConnected && !isLoading ? "text-blue-900" : "text-white"}`}
           style={{
             backgroundColor: isLoading
               ? "#6b7280"
               : isConnected
                 ? "#dc2626"
-                : "#10b981",
+                : "#bfdbfe",
           }}
         >
           {isLoading ? (

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import MeetingWrapper from "@/app/components/MeetingWrapper";
 
@@ -8,7 +9,9 @@ export default async function Meeting() {
 
   return (
     <div className="relative min-h-screen">
-      <MeetingWrapper user={user} />
+      <Suspense>
+        <MeetingWrapper user={user} />
+      </Suspense>
     </div>
   );
 }

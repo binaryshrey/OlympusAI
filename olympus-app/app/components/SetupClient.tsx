@@ -145,7 +145,7 @@ export default function SetupClient() {
 
   const handleContinue = () => {
     setIsLoading(true);
-    router.push("/onboard-team/setup");
+    router.push("/pm-meeting");
   };
 
   return (

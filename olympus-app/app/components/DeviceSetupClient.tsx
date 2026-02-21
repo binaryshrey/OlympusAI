@@ -114,7 +114,7 @@ export default function DeviceSetupClient() {
   const handleStart = async () => {
     setIsLoading(true);
     cleanupStreams();
-    router.push("/meeting");
+    router.push("/meeting?auto=true");
   };
 
   const allPermissionsGranted =
@@ -270,6 +270,7 @@ export default function DeviceSetupClient() {
         <div className="mt-8 flex flex-col sm:flex-row gap-4">
           <button
             onClick={() => router.push("/onboard-team")}
+
             className="flex-1 px-4 py-3 border border-gray-300 rounded-md text-sm font-semibold"
           >
             Back
